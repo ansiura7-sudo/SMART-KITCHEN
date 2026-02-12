@@ -1,0 +1,5 @@
+{
+  "name": "ChefAI: Smart Recipe Planner",
+  "description": "A professional culinary assistant that generates creative recipes based strictly on the ingredients you have available in your kitchen.",
+  "requestFramePermissions": []
+}

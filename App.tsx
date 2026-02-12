@@ -22,7 +22,6 @@ const RecipeCard: React.FC<{ recipe: Recipe; onClick: () => void }> = ({ recipe,
             setImageLoading(false);
           }
         } catch (err) {
-          console.error("Image generation failed", err);
           if (isMounted) {
             setImageUrl(`https://picsum.photos/seed/${recipe.name}/400/300`);
             setImageLoading(false);
@@ -37,44 +36,44 @@ const RecipeCard: React.FC<{ recipe: Recipe; onClick: () => void }> = ({ recipe,
   return (
     <div 
       onClick={onClick}
-      className="group bg-white rounded-[2rem] overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl active:scale-95 transition-all cursor-pointer flex flex-col h-full"
+      className="group bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-orange-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer flex flex-col h-full"
     >
-      <div className="h-52 relative flex-shrink-0 bg-gray-50">
+      <div className="h-64 relative flex-shrink-0 bg-gray-50 overflow-hidden">
         {imageLoading ? (
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="flex flex-col items-center">
-              <div className="w-8 h-8 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mb-2"></div>
-              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Создаем фото...</span>
-            </div>
+          <div className="w-full h-full flex flex-col items-center justify-center space-y-3">
+            <div className="w-10 h-10 border-4 border-orange-100 border-t-orange-500 rounded-full animate-spin"></div>
+            <span className="text-[10px] text-orange-400 font-black uppercase tracking-[0.2em]">Шеф рисует...</span>
           </div>
         ) : (
           <img 
             src={imageUrl || ''} 
             alt={recipe.name} 
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
           />
         )}
-        <div className="absolute top-3 right-3 bg-white/80 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black text-gray-700 flex items-center shadow-sm uppercase tracking-wider">
-          <FireIcon className="w-3 h-3 mr-1 text-orange-500" />
+        <div className="absolute top-5 right-5 bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl text-[10px] font-black text-gray-800 flex items-center shadow-lg border border-white/50 uppercase tracking-widest">
+          <FireIcon className="w-3.5 h-3.5 mr-2 text-orange-500" />
           {recipe.difficulty}
         </div>
       </div>
-      <div className="p-5 flex flex-col flex-1">
-        <div className="flex items-center text-[10px] font-bold text-orange-500 mb-2 uppercase tracking-widest">
-          <ClockIcon className="w-3.5 h-3.5 mr-1" />
+      <div className="p-8 flex flex-col flex-1 relative bg-gradient-to-b from-white to-orange-50/10">
+        <div className="flex items-center text-[10px] font-black text-orange-500 mb-3 uppercase tracking-[0.3em]">
+          <ClockIcon className="w-4 h-4 mr-2" />
           {recipe.time}
         </div>
-        <h3 className="text-xl font-bold text-gray-900 mb-2 leading-tight group-hover:text-orange-600 transition-colors">
+        <h3 className="text-2xl font-black text-gray-900 mb-3 leading-tight group-hover:text-orange-600 transition-colors">
           {recipe.name}
         </h3>
-        <p className="text-sm text-gray-500 line-clamp-2 mb-4 leading-relaxed">
+        <p className="text-sm text-gray-500 line-clamp-3 mb-8 leading-relaxed font-medium">
           {recipe.description}
         </p>
-        <div className="mt-auto flex items-center text-xs font-bold text-orange-600 uppercase tracking-widest">
-          Готовить сейчас
-          <svg className="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-          </svg>
+        <div className="mt-auto flex items-center justify-between">
+          <span className="text-[11px] font-black text-orange-600 uppercase tracking-[0.2em] group-hover:translate-x-2 transition-transform duration-300 flex items-center">
+            Начать готовку 
+            <svg className="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </span>
         </div>
       </div>
     </div>
@@ -94,14 +93,6 @@ const App: React.FC = () => {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  const handlePlanSelect = (newPlan: UserPlan) => {
-    if (newPlan === UserPlan.PREMIUM) {
-      setIsPremiumModalOpen(true);
-    } else {
-      setPlan(newPlan);
-    }
-  };
-
   const addIngredient = (e?: React.FormEvent) => {
     e?.preventDefault();
     const val = inputValue.trim().toLowerCase();
@@ -111,99 +102,107 @@ const App: React.FC = () => {
     }
   };
 
-  const removeIngredient = (ing: string) => {
-    setIngredients(ingredients.filter(i => i !== ing));
-  };
-
   const handleGenerate = async () => {
     if (ingredients.length === 0) return;
     
+    // Explicit check for the key presence in the browser environment
+    if (!process.env.API_KEY || process.env.API_KEY === "undefined") {
+      setState({ ...state, loading: false, error: "Критическая ошибка: API ключ не обнаружен в окружении браузера. Проверьте настройки Vercel Environment Variables и сделайте Redeploy." });
+      return;
+    }
+
     setState({ ...state, recipes: [], loading: true, error: null });
     try {
       const results = await generateRecipes(ingredients, plan);
       setState({ recipes: results, loading: false, error: null });
-      // Плавный скролл к результатам на мобильных
       setTimeout(() => {
-        resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 200);
     } catch (err: any) {
-      console.error(err);
-      setState({ 
-        ...state, 
-        loading: false, 
-        error: 'Произошла ошибка. Пожалуйста, попробуйте позже.' 
-      });
+      console.error("GENERATION ERROR:", err);
+      let errorMsg = 'Произошла ошибка при генерации. Проверьте консоль для подробностей.';
+      if (err.message?.includes('API Key') || err.message?.includes('Ng')) {
+        errorMsg = 'API Ключ не проброшен в приложение! Пожалуйста, добавьте API_KEY в настройки Vercel и обязательно нажмите Redeploy.';
+      }
+      setState({ ...state, loading: false, error: errorMsg });
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#fcfbf7] flex flex-col items-center">
+    <div className="min-h-screen bg-[#fcfbf7] flex flex-col items-center selection:bg-orange-100">
       <PremiumModal isOpen={isPremiumModalOpen} onClose={() => setIsPremiumModalOpen(false)} />
       
-      {/* Sticky Top Header for App feel */}
-      <header className="sticky top-0 z-40 w-full bg-[#fcfbf7]/80 backdrop-blur-lg border-b border-orange-100/50 px-4 py-4 mb-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-orange-500 rounded-xl shadow-lg shadow-orange-100">
-              <ChefHatIcon className="w-6 h-6 text-white" />
+      <header className="sticky top-0 z-40 w-full bg-[#fcfbf7]/80 backdrop-blur-2xl border-b border-orange-100/30 px-8 py-6">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center space-x-6">
+            <div className="p-3 bg-gradient-to-br from-orange-400 to-orange-600 rounded-2xl shadow-2xl shadow-orange-200 transform -rotate-6 hover:rotate-0 transition-all duration-500 group">
+              <ChefHatIcon className="w-8 h-8 text-white group-hover:scale-110 transition-transform" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-gray-900 leading-none tracking-tight uppercase">ШефИИ</h1>
-              <span className="text-[10px] text-orange-500 font-bold uppercase tracking-widest">Smart Kitchen</span>
+              <h1 className="text-3xl font-black text-gray-900 leading-none tracking-tighter uppercase">ШефИИ</h1>
+              <span className="text-[10px] text-orange-500 font-black uppercase tracking-[0.5em] block mt-1">Gourmet Assistant</span>
             </div>
           </div>
-          <div className="text-[10px] font-black bg-orange-100 text-orange-600 px-3 py-1.5 rounded-full uppercase tracking-widest">
-            {plan} Plan
-          </div>
+          <button 
+            onClick={() => setIsPremiumModalOpen(true)}
+            className="flex items-center space-x-3 bg-white px-6 py-3 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 group"
+          >
+            <div className="w-2.5 h-2.5 bg-orange-500 rounded-full animate-pulse"></div>
+            <span className="text-xs font-black uppercase tracking-[0.2em] text-gray-600 group-hover:text-orange-600 transition-colors">{plan} Access</span>
+          </button>
         </div>
       </header>
 
-      <main className="w-full max-w-4xl px-4 flex flex-col md:flex-row gap-8 pb-12">
+      <main className="w-full max-w-7xl px-8 py-12 flex flex-col lg:flex-row gap-16">
         
-        {/* Sidebar: Inputs */}
-        <div className="w-full md:w-1/3 flex flex-col space-y-4">
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-orange-50/50">
-            <h2 className="text-lg font-extrabold text-gray-800 mb-4 flex items-center">
-              <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-              Продукты
+        {/* Sidebar / Kitchen Drawer */}
+        <aside className="w-full lg:w-[420px] space-y-10 flex-shrink-0">
+          <div className="bg-white p-10 rounded-[4rem] shadow-xl shadow-orange-100/20 border border-orange-50 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-orange-50/50 rounded-full -mr-32 -mt-32 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
+            
+            <h2 className="text-[11px] font-black text-gray-400 uppercase tracking-[0.4em] mb-8 flex items-center">
+              <span className="w-3 h-3 bg-orange-500 rounded-full mr-4 shadow-lg shadow-orange-200 animate-pulse"></span>
+              Мои Ингредиенты
             </h2>
             
-            <form onSubmit={addIngredient} className="relative mb-4">
+            <form onSubmit={addIngredient} className="relative mb-10 group/input">
               <input 
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Что в холодильнике?"
-                className="w-full pl-4 pr-12 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-orange-400 focus:bg-white transition-all text-gray-800 font-medium placeholder:text-gray-400 shadow-inner"
+                placeholder="Что у вас есть?"
+                className="w-full pl-8 pr-16 py-7 bg-gray-50 border-none rounded-[2rem] focus:ring-4 focus:ring-orange-100 focus:bg-white transition-all text-gray-800 font-bold placeholder:text-gray-300 shadow-inner text-lg"
               />
               <button 
                 type="submit"
-                className="absolute right-2 top-2 bg-orange-500 text-white p-2 rounded-xl hover:bg-orange-600 active:scale-90 transition-all shadow-md"
+                className="absolute right-3 top-3 bg-orange-500 text-white p-4 rounded-2xl hover:bg-orange-600 active:scale-90 transition-all shadow-xl shadow-orange-200"
               >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
               </button>
             </form>
 
-            <div className="flex flex-wrap gap-2 min-h-[120px] content-start">
+            <div className="flex flex-wrap gap-3 min-h-[240px] content-start">
               {ingredients.length === 0 ? (
-                <div className="w-full py-8 flex flex-col items-center justify-center opacity-20">
-                  <svg className="w-10 h-10 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  <p className="text-xs font-bold uppercase tracking-widest">Пусто</p>
+                <div className="w-full py-16 flex flex-col items-center justify-center text-center">
+                  <div className="w-24 h-24 bg-gray-50 rounded-[3rem] flex items-center justify-center mb-6 border-2 border-dashed border-gray-100 transform -rotate-3">
+                    <TrashIcon className="w-10 h-10 text-gray-200" />
+                  </div>
+                  <p className="text-[11px] font-black text-gray-300 uppercase tracking-[0.3em] max-w-[200px] leading-relaxed">
+                    Добавьте продукты выше, чтобы шеф начал творить
+                  </p>
                 </div>
               ) : (
                 ingredients.map((ing) => (
                   <span 
                     key={ing} 
-                    className="inline-flex items-center bg-orange-50 text-orange-700 px-4 py-2 rounded-2xl text-xs font-bold border border-orange-100 shadow-sm animate-in zoom-in duration-200"
+                    className="inline-flex items-center bg-white text-gray-700 px-6 py-4 rounded-[1.8rem] text-xs font-black uppercase tracking-widest border border-gray-100 shadow-sm hover:border-orange-300 hover:shadow-lg transition-all animate-in zoom-in-50 duration-300 cursor-default"
                   >
                     {ing}
                     <button 
-                      onClick={() => removeIngredient(ing)}
-                      className="ml-2 text-orange-300 hover:text-orange-600 p-0.5"
+                      onClick={() => setIngredients(ingredients.filter(i => i !== ing))}
+                      className="ml-4 text-gray-300 hover:text-red-500 transition-colors p-1"
                     >
                       <TrashIcon className="w-4 h-4" />
                     </button>
@@ -213,73 +212,83 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-orange-50/50">
-            <div className="flex p-1 bg-gray-50 rounded-2xl">
-              <button 
-                onClick={() => handlePlanSelect(UserPlan.BASIC)}
-                className={`flex-1 py-3 text-[10px] font-black rounded-xl transition-all uppercase tracking-widest ${plan === UserPlan.BASIC ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-400'}`}
-              >
-                Basic
-              </button>
-              <button 
-                onClick={() => handlePlanSelect(UserPlan.PREMIUM)}
-                className={`flex-1 py-3 text-[10px] font-black rounded-xl transition-all uppercase tracking-widest relative ${plan === UserPlan.PREMIUM ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-400'}`}
-              >
-                Premium
-                <span className="absolute top-1 right-1 flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-500"></span>
-                </span>
-              </button>
-            </div>
+          <div className="bg-white p-3 rounded-[2.5rem] shadow-lg border border-orange-50 flex space-x-2">
+            <button 
+              onClick={() => setPlan(UserPlan.BASIC)}
+              className={`flex-1 py-5 text-[11px] font-black rounded-[2rem] transition-all uppercase tracking-[0.3em] ${plan === UserPlan.BASIC ? 'bg-orange-500 text-white shadow-2xl shadow-orange-200' : 'text-gray-400 hover:text-gray-700'}`}
+            >
+              Basic
+            </button>
+            <button 
+              onClick={() => setIsPremiumModalOpen(true)}
+              className={`flex-1 py-5 text-[11px] font-black rounded-[2rem] transition-all uppercase tracking-[0.3em] relative ${plan === UserPlan.PREMIUM ? 'bg-orange-500 text-white shadow-2xl shadow-orange-200' : 'text-gray-400 hover:text-gray-700'}`}
+            >
+              Premium
+              <div className="absolute top-3 right-3 w-2 h-2 bg-white rounded-full animate-ping"></div>
+            </button>
           </div>
 
           <button 
             disabled={ingredients.length === 0 || state.loading}
             onClick={handleGenerate}
-            className={`w-full py-5 rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 flex items-center justify-center space-x-2 
+            className={`w-full py-9 rounded-[3.5rem] font-black text-base uppercase tracking-[0.4em] shadow-2xl transition-all active:scale-[0.96] flex items-center justify-center space-x-5 
               ${ingredients.length === 0 || state.loading 
-                ? 'bg-gray-100 text-gray-300 cursor-not-allowed' 
-                : 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-200'}`}
+                ? 'bg-gray-100 text-gray-300 cursor-not-allowed shadow-none' 
+                : 'bg-orange-500 text-white hover:bg-orange-600 shadow-orange-200 hover:shadow-orange-300'}`}
           >
             {state.loading ? (
-              <div className="flex items-center space-x-3">
-                <div className="w-5 h-5 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
-                <span>Генерация...</span>
+              <div className="flex items-center space-x-5">
+                <div className="w-7 h-7 border-[5px] border-white/20 border-t-white rounded-full animate-spin"></div>
+                <span>Творим...</span>
               </div>
             ) : (
               <>
-                <FireIcon className="w-5 h-5" />
-                <span>Создать меню</span>
+                <FireIcon className="w-8 h-8" />
+                <span>Сгенерировать</span>
               </>
             )}
           </button>
-        </div>
+        </aside>
 
-        {/* Content Area */}
-        <div className="flex-1 min-h-[400px]" ref={resultsRef}>
+        {/* Results Area */}
+        <section className="flex-1 min-h-[800px] relative" ref={resultsRef}>
           {state.error && (
-            <div className="bg-red-50 border-2 border-red-100 text-red-600 p-6 rounded-[2rem] mb-6 text-center font-bold text-sm">
-              {state.error}
+            <div className="bg-red-50 border-2 border-red-100 p-12 rounded-[4rem] mb-12 animate-in slide-in-from-top-10 duration-1000 shadow-2xl shadow-red-100/50">
+              <div className="flex items-start space-x-8">
+                <div className="p-5 bg-red-100 rounded-[2rem] text-red-600 shadow-inner">
+                  <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                </div>
+                <div>
+                  <h3 className="text-red-900 font-black uppercase tracking-[0.3em] text-xs mb-3">Ошибка Окружения</h3>
+                  <p className="text-red-600 font-bold text-xl leading-relaxed">{state.error}</p>
+                  <div className="mt-8 flex flex-col space-y-2">
+                    <p className="text-red-400 text-[10px] font-black uppercase tracking-widest">Проверьте консоль разработчика (F12)</p>
+                    <p className="text-red-400 text-[10px] font-black uppercase tracking-widest italic">Убедитесь, что API_KEY добавлен в Vercel Settings -> Environment Variables</p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
           {state.loading ? (
-            <div className="flex flex-col items-center justify-center h-full py-16 space-y-8">
+            <div className="flex flex-col items-center justify-center h-full py-40 space-y-16">
               <div className="relative">
-                <div className="w-32 h-32 border-[12px] border-orange-50 rounded-full shadow-inner"></div>
-                <div className="absolute inset-0 w-32 h-32 border-[12px] border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-56 h-56 border-[24px] border-orange-50 rounded-full shadow-inner"></div>
+                <div className="absolute inset-0 w-56 h-56 border-[24px] border-orange-500 border-t-transparent rounded-full animate-spin"></div>
                 <div className="absolute inset-0 flex items-center justify-center">
-                   <ChefHatIcon className="w-10 h-10 text-orange-500 animate-bounce" />
+                   <ChefHatIcon className="w-20 h-20 text-orange-500 animate-bounce" />
                 </div>
               </div>
               <div className="text-center">
-                <p className="text-gray-900 font-black text-lg uppercase tracking-widest mb-2">Шеф творит магию</p>
-                <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Придумываем лучшие сочетания...</p>
+                <p className="text-gray-900 font-black text-4xl uppercase tracking-[0.4em] mb-4 animate-pulse">Шеф на Кухне</p>
+                <div className="flex flex-col items-center space-y-2">
+                  <p className="text-gray-400 text-[11px] font-black uppercase tracking-[0.5em] animate-in fade-in slide-in-from-bottom duration-1000">Подбираем лучшие сочетания...</p>
+                  <p className="text-gray-400 text-[11px] font-black uppercase tracking-[0.5em] opacity-0 animate-in fade-in duration-1000 delay-500">Сервируем стол...</p>
+                </div>
               </div>
             </div>
           ) : state.recipes.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-24">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pb-60">
               {state.recipes.map((recipe, index) => (
                 <RecipeCard 
                   key={index} 
@@ -289,20 +298,19 @@ const App: React.FC = () => {
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full py-20 text-center">
-              <div className="w-24 h-24 bg-orange-50 rounded-full flex items-center justify-center mb-6">
-                <ChefHatIcon className="w-10 h-10 text-orange-200" />
+            <div className="flex flex-col items-center justify-center h-full py-48 text-center">
+              <div className="w-48 h-48 bg-orange-50/40 rounded-[5rem] flex items-center justify-center mb-14 transform -rotate-12 border border-orange-100/50 shadow-inner group">
+                <ChefHatIcon className="w-24 h-24 text-orange-100 group-hover:text-orange-200 transition-colors duration-500" />
               </div>
-              <h3 className="text-xl font-black text-gray-900 uppercase tracking-widest mb-2">Ваша кухня</h3>
-              <p className="text-gray-400 text-sm font-medium max-w-xs mx-auto leading-relaxed">
-                Добавьте продукты, которые у вас есть, и мы превратим их в ресторанные блюда.
+              <h3 className="text-4xl font-black text-gray-900 uppercase tracking-widest mb-6">Готовы Творить?</h3>
+              <p className="text-gray-400 text-sm font-black max-w-sm mx-auto leading-relaxed uppercase tracking-[0.3em]">
+                Заполните корзину слева продуктами и получите авторское меню от ИИ в один клик.
               </p>
             </div>
           )}
-        </div>
+        </section>
       </main>
 
-      {/* Details Modal */}
       {selectedRecipe && (
         <RecipeDetails 
           recipe={selectedRecipe} 
